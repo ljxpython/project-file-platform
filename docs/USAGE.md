@@ -61,6 +61,32 @@ docker compose down
 - filebrowser: `http://localhost:8080`
 - PostgreSQL: `localhost:5432`
 
+### 4.1 端口冲突处理（重要）
+
+如果你本机已有服务占用了 `8000/8001/8080/5432`，请先配置 `.env` 再启动：
+
+```bash
+cp .env.example .env
+```
+
+例如将 API 改到 `18000`，filebrowser 改到 `18080`：
+
+```bash
+API_HOST_PORT=18000
+FILEBROWSER_HOST_PORT=18080
+```
+
+然后重启：
+
+```bash
+docker compose up -d --build
+```
+
+说明：
+
+- 容器内部端口不变（API 仍是容器内 `8000`）
+- 容器间通信不受影响（MCP 仍通过 `http://api:8000` 调 API）
+
 ## 5. 本地开发运行（uv）
 
 1. 安装依赖
@@ -73,6 +99,12 @@ uv sync --dev
 
 ```bash
 uv run pfp-api
+```
+
+如需改端口（避免与本机前端冲突）：
+
+```bash
+API_PORT=18000 uv run pfp-api
 ```
 
 3. 启动 MCP（另一个终端）
@@ -224,3 +256,7 @@ curl http://localhost:8000/api/v1/projects
 3. 拉镜像超时
 - 配置 Docker 镜像源后重试
 - 分开手动 `docker pull` 相关镜像再 `compose up`
+
+4. `port is already allocated` / 端口冲突
+- 使用 `.env` 覆盖端口映射（见“4.1 端口冲突处理”）
+- 查看占用：`ss -ltnp | grep ':8000'`

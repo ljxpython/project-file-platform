@@ -45,6 +45,8 @@ uv sync
 uv run pfp-api
 ```
 
+如端口冲突可改本地端口：`API_PORT=18000 uv run pfp-api`
+
 3. 启动 MCP（另一个终端）
 
 ```bash
@@ -65,6 +67,8 @@ uv run pytest -q
 ```bash
 docker compose up --build
 ```
+
+如有端口冲突，可通过 `.env` 覆盖宿主机端口映射（见 `docs/USAGE.md`）。
 
 服务端口：
 

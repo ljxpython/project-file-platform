@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import os
 import time
 import uuid
 from http import HTTPStatus
@@ -232,7 +233,9 @@ def post_upload_abort(request: Request, payload: UploadAbortRequest) -> dict[str
 def run() -> None:
     import uvicorn
 
-    uvicorn.run("project_file_platform.api.main:app", host="0.0.0.0", port=8000, reload=False)
+    host = os.getenv("API_HOST", "0.0.0.0")
+    port = int(os.getenv("API_PORT", "8000"))
+    uvicorn.run("project_file_platform.api.main:app", host=host, port=port, reload=False)
 
 
 if __name__ == "__main__":
