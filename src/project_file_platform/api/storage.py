@@ -19,6 +19,17 @@ from project_file_platform.common.config import AppConfig
 from project_file_platform.common.errors import AppError
 
 
+def _ensure_shared_permissions(path: Path) -> None:
+    try:
+        if path.is_dir():
+            path.chmod(0o777)
+        else:
+            path.chmod(0o666)
+    except OSError:
+        # Best effort only; keep operation successful even if chmod is not allowed.
+        pass
+
+
 def _file_meta(project_root: Path, file_path: Path) -> dict[str, object]:
     stat = file_path.stat()
     rel = file_path.relative_to(project_root).as_posix()
@@ -102,6 +113,7 @@ def upload_file(*, config: AppConfig, project_id: str, directory: str, file: Upl
     file_name = normalize_filename(file.filename)
     root, target_dir, _ = resolve_under_project(project_id, directory, config)
     target_dir.mkdir(parents=True, exist_ok=True)
+    _ensure_shared_permissions(target_dir)
 
     max_bytes = config.max_file_size_bytes
     temp_path = target_dir / f".{uuid.uuid4().hex}.uploading"
@@ -120,6 +132,7 @@ def upload_file(*, config: AppConfig, project_id: str, directory: str, file: Upl
 
         final_path = target_dir / file_name
         os.replace(temp_path, final_path)
+        _ensure_shared_permissions(final_path)
         return _file_meta(root, final_path)
     finally:
         if temp_path.exists():
@@ -168,6 +181,7 @@ def init_chunk_upload(
     normalized_name = normalize_filename(filename)
     root, target_dir, rel_dir = resolve_under_project(project_id, path, config)
     target_dir.mkdir(parents=True, exist_ok=True)
+    _ensure_shared_permissions(target_dir)
 
     configured_chunk = config.chunk_size_bytes
     effective_chunk_size = min(chunk_size, configured_chunk) if chunk_size else configured_chunk
@@ -175,6 +189,7 @@ def init_chunk_upload(
     upload_id = uuid.uuid4().hex
     session_dir = _session_dir(root, upload_id)
     session_dir.mkdir(parents=True, exist_ok=True)
+    _ensure_shared_permissions(session_dir)
 
     store.create_session(
         upload_id=upload_id,
@@ -199,6 +214,7 @@ def upload_chunk(*, config: AppConfig, store: UploadSessionStore, upload_id: str
     project_root = resolve_project_root(session.project_id, config)
     session_dir = _session_dir(project_root, upload_id)
     session_dir.mkdir(parents=True, exist_ok=True)
+    _ensure_shared_permissions(session_dir)
 
     part_path = session_dir / f"part-{part_number:08d}.chunk"
     size = 0
@@ -212,6 +228,7 @@ def upload_chunk(*, config: AppConfig, store: UploadSessionStore, upload_id: str
             if size > session.chunk_size:
                 raise AppError("FILE_TOO_LARGE", "chunk exceeds configured chunk size", HTTPStatus.REQUEST_ENTITY_TOO_LARGE)
             fh.write(chunk)
+    _ensure_shared_permissions(part_path)
 
     store.upsert_part(upload_id, part_number, size)
     return {
@@ -238,6 +255,7 @@ def complete_chunk_upload(*, config: AppConfig, store: UploadSessionStore, uploa
 
     target_dir = (project_root / session.rel_dir).resolve() if session.rel_dir != "/" else project_root
     target_dir.mkdir(parents=True, exist_ok=True)
+    _ensure_shared_permissions(target_dir)
     final_path = target_dir / session.filename
     temp_path = target_dir / f".{upload_id}.assembling"
 
@@ -256,6 +274,7 @@ def complete_chunk_upload(*, config: AppConfig, store: UploadSessionStore, uploa
             raise AppError("UPLOAD_PART_MISSING", "total assembled size does not match expected size", HTTPStatus.BAD_REQUEST)
 
         os.replace(temp_path, final_path)
+        _ensure_shared_permissions(final_path)
     finally:
         if temp_path.exists():
             temp_path.unlink(missing_ok=True)

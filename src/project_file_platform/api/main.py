@@ -48,6 +48,11 @@ def on_startup() -> None:
         root_path = Path(root)
         root_path.mkdir(parents=True, exist_ok=True)
         (root_path / ".upload_sessions").mkdir(parents=True, exist_ok=True)
+        try:
+            root_path.chmod(0o777)
+            (root_path / ".upload_sessions").chmod(0o777)
+        except OSError:
+            pass
 
     if config.postgres.run_migrations_on_startup:
         migrations_dir = resolve_migrations_dir()
