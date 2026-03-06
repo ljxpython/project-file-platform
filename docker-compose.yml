@@ -1,0 +1,90 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: pfp-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: fileplatform
+      POSTGRES_PASSWORD: fileplatform
+      POSTGRES_DB: fileplatform
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./.data/postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fileplatform -d fileplatform"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  api:
+    build:
+      context: .
+      dockerfile: api/Dockerfile
+    container_name: pfp-api
+    restart: unless-stopped
+    environment:
+      APP_CONFIG_PATH: /app/config/app.toml
+      APP_POSTGRES_DSN: postgresql://fileplatform:fileplatform@postgres:5432/fileplatform
+      APP_SERVICE_LOG_DIR: /app/logs
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "python -c \"import sys,urllib.request; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/health').status == 200 else 1)\"",
+        ]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+    volumes:
+      - ./storage:/app/storage
+      - ./config:/app/config:ro
+      - ./logs:/app/logs
+
+  mcp:
+    build:
+      context: .
+      dockerfile: mcp-server/Dockerfile
+    container_name: pfp-mcp
+    restart: unless-stopped
+    environment:
+      APP_CONFIG_PATH: /app/config/app.toml
+      APP_POSTGRES_DSN: postgresql://fileplatform:fileplatform@postgres:5432/fileplatform
+      API_BASE_URL: http://api:8000
+      APP_SERVICE_LOG_DIR: /app/logs
+      MCP_TRANSPORT: streamable-http
+      MCP_HOST: 0.0.0.0
+      MCP_PORT: 8001
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - "8001:8001"
+    volumes:
+      - ./config:/app/config:ro
+      - ./logs:/app/logs
+
+  filebrowser:
+    image: filebrowser/filebrowser:latest
+    container_name: pfp-filebrowser
+    restart: unless-stopped
+    command:
+      - --address
+      - 0.0.0.0
+      - --port
+      - "80"
+      - --root
+      - /srv
+      - --database
+      - /database/filebrowser.db
+      - --noauth
+    ports:
+      - "8080:80"
+    volumes:
+      - ./storage:/srv
+      - ./.data/filebrowser:/database

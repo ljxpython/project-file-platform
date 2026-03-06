@@ -1,0 +1,22 @@
+[projects]
+project-a = "storage/projects/project-a"
+project-b = "storage/projects/project-b"
+
+[storage]
+max_file_size_mb = 500
+chunk_size_mb = 8
+
+[mcp]
+max_inline_download_mb = 2
+
+[postgres]
+dsn = "postgresql://fileplatform:fileplatform@postgres:5432/fileplatform"
+run_migrations_on_startup = true
+
+[service]
+log_level = "INFO"
+log_dir = "logs"
+log_json = true
+log_file_max_mb = 50
+log_backup_count = 10
+log_to_stdout = true

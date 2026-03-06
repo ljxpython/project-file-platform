@@ -1,0 +1,11 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.mypy_cache/
+.coverage
+.data/
+.env
+.DS_Store
+storage/projects/*/.upload_sessions/
+logs/*.log
